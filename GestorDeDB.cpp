@@ -8,6 +8,14 @@
 #include "Tabla.h"
 #include "Col.h"
 using namespace std;
+
+Tabla tableexist(string tbname);
+
+
+
+
+
+vector<Tabla> tablas;
 vector<string> split(string comando,string delimiter=" ") {
     vector<string> campos;
     size_t pos = comando.find(delimiter);
@@ -36,20 +44,24 @@ void writeTable(Tabla tb) {
     }
     else cout << "Error de apertura de archivo." << endl;
 }
-
 void createTable(string data) {
     string tablename = string(data.begin()+1, data.begin()+ data.find("("));
-    string args = data.substr(data.find("(")+1, data.find(")")-1);
-    vector<string> campos=split(trim(args),",");
-    const int c = campos.size();
-    vector<Col> columnas;
-    for (string a : campos) {
-        vector<string> val = split(trim(a));
-        columnas.push_back(Col(val[0],val[1]));
+    if (tableexist(tablename).nombre!="") {
+        string args = string(data.begin() + data.find("(") + 1, data.begin() + data.find(")"));
+        vector<string> campos = split(trim(args), ",");
+        const int c = campos.size();
+        vector<Col> columnas;
+        for (string a : campos) {
+            vector<string> val = split(trim(a));
+            columnas.push_back(Col(val[0], val[1]));
+        }
+        Tabla t(tablename, columnas.size(), columnas);
+        writeTable(t);
+        tablas.push_back(t);
     }
-    Tabla t(tablename,columnas.size(),columnas);
-    int a = 0;
-    writeTable(t);
+    else {
+        cout << "tabla \"" + tablename + "\" ya existe"<<endl;
+    }
 }
 string readComand() {
     string comando;
@@ -60,24 +72,138 @@ string readComand() {
     } while (line[line.size() - 1] != ';');
     return comando;
 }
+
+Tabla tableexist(string tbname) {
+    for (Tabla t : tablas) if (t.nombre == tbname) return t;
+    return Tabla();
+}
+void insertValue(string val) {
+    size_t pos = (val.find(" ")>val.find("("))?val.find("("): val.find(" ");
+    
+    string tablename = string(val.begin(), val.begin() + pos);
+    val = string(val.begin()+val.find("(")+1,val.begin()+val.find(")"));
+    Tabla tb = tableexist(tablename);
+    if (tb.nombre!="") {
+        vector<string> valores = split(val, ",");
+        
+        if (valores.size() != tb.numcols) {
+            cout << "numero incorrecto de columnas"<<endl;
+        }
+        else {
+            string finalvalues;
+            for (string v : valores) finalvalues += trim(v) + ",";
+            finalvalues = string(finalvalues.begin(), finalvalues.end() - 1);
+            ofstream f(tablename + ".txt", ios::app);
+            if (f.is_open()) {
+                f << finalvalues;
+                f << "\n";
+                f.close();
+            }
+            else cout << "Error de apertura de archivo." << endl;
+        }
+    }
+    else {
+        cout << "Tabla no existe";
+    }
+}
+
+void cargardata() {
+    ifstream myfile("Tablas.txt");
+    string line;
+    if (myfile.is_open())
+    {
+        while (getline(myfile, line))
+        {
+            size_t pos = line.find("[");
+            vector<string> tbd = split(string(line.begin(), line.begin() + pos-1),"/");
+            vector<string> cd = split(string(line.begin() + pos + 1, line.end() - 1), ",");
+            vector<Col> colums;
+            for (string c : cd) {
+                vector<string> ds = split(c, "/");
+                colums.push_back(Col(ds[0], ds[1]));
+            }
+            tablas.push_back(Tabla(tbd[0],stoi(tbd[1]),colums));
+        }
+        myfile.close();
+    }
+
+    else cout << "Unable to open file";
+}
 int main()
 {
-    string a = trim("hola");
-    cout << a;
-    string comando=readComand();
+    cargardata();
+    bool running = true;
+    while (running) {
+        string comando = readComand();
+        size_t pos = comando.find(" ");
+        string ident = string(comando.begin(), comando.begin() + pos);
+        string value = string(comando.begin() + pos + 1, comando.end());
+        if (ident == "create") {
+            pos = value.find(" ");
+            size_t pospar = value.find("(");
+            string a = (pospar < pos) ? value.substr(0, pospar) : value.substr(0, pos);
+            pos = (pospar < pos) ? pospar : pos;
+            if (value.substr(0, pos) == "table")
+                createTable(string(value.begin() + pos, value.end()));
+        }
+        if (ident == "insert") {
+            pos = value.find(" ");
+            if (string(value.begin(), value.begin() + pos) == "into") {
+                value = string(value.begin() + pos+1, value.end());
+                pos = value.find(" ");
+                insertValue(value);
 
-   
-    size_t pos = comando.find(" ");
-    
-    if (comando.substr(0, pos) == "create") {
-        string value = comando.substr(pos+1,comando.size()-1);
-        pos = value.find(" ");
-        size_t pospar = value.find("(");
-        string a = (pospar < pos)? value.substr(0, pospar) : value.substr(0, pos);
-        pos = (pospar < pos)?pospar:pos;
-        if (value.substr(0, pos) == "table")
-            createTable(string(value.begin()+pos,value.begin()+ value.size() - 2));
+            }
+        }
+        if (ident == "update") {
+            pos = value.find(" ");
+            string tablename = string(value.begin(),value.begin()+pos);
+            value.erase(value.begin(), value.begin() + pos+1);
+            Tabla tb = tableexist(tablename);
+            if (tb.numcols) {
+                pos = value.find(" ");
+                if (string(value.begin(), value.begin() + pos) == "set") {
+                    //primero valida que la condicion del where exista XD
+                    value.erase(0, 4);
+                    pos = value.find("where");
+                    string updateds = trim(string(value.begin(), value.begin() + pos));
+                    value.erase(0, pos);
+                    vector<string> parametros = split(updateds, ",");
+                    for (string p : parametros) {
+                        vector<string> datos = split(p, "=");
+                        int columnumber;
+                        for (int i = 0; i < tb.colums.size();i++) {
+                            if (tb.colums[i].nombre == trim(datos[0])) columnumber=i;
+                        }
+                        fstream file;
+                        file.open(tablename+".txt");
+                        string line; int i = 0;
+                        vector<string> data;
+                        while (std::getline(file, line)) {
+                            data.push_back(line);
+                        }
+                        file.close();
+                        string condicion = trim(string(value.begin() + value.find("where") + 6, value.end()));
+
+
+
+
+                    }
+
+
+
+
+
+
+                }
+            }
+                
+        }
+        if (ident == "delete") {
+
+        }
     }
+    
     
     /*Profesor profesores[10] = { {"P1","RobertoAB"},{"P2","Sharon"},{"P3","Juan"} ,
                                     {"P4","Piero"} ,{"P5","Renzo"} ,{"P6","Lotus"},
