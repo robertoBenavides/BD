@@ -44,6 +44,15 @@ void writeTable(Tabla tb) {
     }
     else cout << "Error de apertura de archivo." << endl;
 }
+void rewriteInfo(vector<string>finald,string tablename) {
+    ofstream f(tablename + ".txt", ios::out);
+
+    if (f.is_open()) {
+        for (string a : finald) f << a;
+        f.close();
+    }
+    else cout << "Error de apertura de archivo." << endl;
+}
 void createTable(string data) {
     string tablename = string(data.begin()+1, data.begin()+ data.find("("));
     if (tableexist(tablename).numcols) {
@@ -147,6 +156,18 @@ int getIndexColum(vector<Col> colums,string data) {
     }
     return -1;
 }
+vector<string> toFlatString(vector<vector<string>> data,string del=",") {
+    vector<string> finald;
+    for (vector<string> d : data) {
+        string s;
+        for (int i = 0; i < d.size() - 1; i++) {
+            s += d[i] + del;
+        }
+        s += d[d.size() - 1] + "\n";
+        finald.push_back(s);
+    }
+    return finald;
+}
 int getbycol(vector<vector<string>>datos, int i,string val) {
     for (int j = 0; j < datos.size();j++) {
         if (datos[j][i] == val)  return j;
@@ -207,30 +228,73 @@ int main()
                         int columnumber=getIndexColum(tb.colums,trim(datos[0]));
                         data[indexdata][columnumber] = trim(datos[1]);
                     }
-                    vector<string>finald;
-                    for (vector<string> d : data) {
-                        string s;
-                        for (int i = 0; i < d.size() - 1; i++) {
-                            s += d[i] + ",";
-                        }
-                        s += d[d.size() - 1]+"\n";
-                        finald.push_back(s);
-                    }
-
-                    ofstream f(tablename+".txt", ios::out);
+                    vector<string>finald=toFlatString(data);
                     
-                    if (f.is_open()) {
-                        for(string a:finald) f << a;
-                        f.close();
-                    }
-                    else cout << "Error de apertura de archivo." << endl;
+
+                    rewriteInfo(finald,tablename);
 
                 }
             }
                 
         }
         if (ident == "delete") {
+            pos = value.find(" ");
+            if (string(value.begin(), value.begin() + pos) == "from") {
+                value.erase(value.begin(), value.begin() + pos + 1);
+                pos = value.find(" ");
+                string tablename = string(value.begin(), value.begin() + pos);
+                pos = value.find("where");
+                value.erase(value.begin(), value.begin() + pos + 5);
+                vector<string> cond = split(trim(string(value.begin(),value.end()-1)), "=");
+                Tabla tb = tableexist(tablename);
+                vector<vector<string>> data = getall(tablename);
+                int colnumcond = getIndexColum(tb.colums, trim(cond[0]));
+                int indexdata = getbycol(data, colnumcond, trim(cond[1]));
+                data.erase(data.begin() + indexdata);
 
+                vector<string>finald = toFlatString(data);
+                rewriteInfo(finald, tablename);
+
+            }
+            
+            
+            
+        }
+        if (ident == "select") {
+            pos = value.find("from");
+            string campos = string(value.begin(), value.begin() + pos);
+            value.erase(value.begin(), value.begin() + pos + 4);
+            string tablename = string(value.begin()+1,value.end()-1);
+            Tabla tb = tableexist(tablename);
+            if (tb.numcols) {
+                vector<vector<string>>data=getall(tablename);
+                if (trim(campos) == "*") {
+                    for(Col c:tb.colums) cout << c.nombre << "\t";
+                    cout << endl;
+                    for (vector<string>camp : data) {
+                        for (string c : camp) cout << c << "\t";
+                        cout << endl;
+                    }
+                        
+                }
+                else {
+                    vector<string> camps = split(campos, ",");
+                    vector<int> indices;
+                    for (string c : camps) {
+                        indices.push_back(getIndexColum(tb.colums, trim(c)));
+                    }
+
+                    for (int c : indices) cout << tb.colums[c].nombre << "\t";
+                    cout << endl;
+                    
+                    for (vector<string>camp : data) {
+                        for (int c : indices) cout << camp[c] << "\t";
+                        cout << endl;
+                    }
+                }
+                
+
+            }
         }
     }
     
