@@ -46,7 +46,7 @@ void writeTable(Tabla tb) {
 }
 void createTable(string data) {
     string tablename = string(data.begin()+1, data.begin()+ data.find("("));
-    if (tableexist(tablename).nombre!="") {
+    if (tableexist(tablename).numcols) {
         string args = string(data.begin() + data.find("(") + 1, data.begin() + data.find(")"));
         vector<string> campos = split(trim(args), ",");
         const int c = campos.size();
@@ -129,6 +129,30 @@ void cargardata() {
 
     else cout << "Unable to open file";
 }
+
+vector<vector<string>> getall(string tablename) {
+    fstream file;
+    file.open(tablename + ".txt");
+    string line;
+    vector<vector<string>> data;
+    while (std::getline(file, line)) {
+        data.push_back(split(line, ","));
+    }
+    file.close();
+    return data;
+}
+int getIndexColum(vector<Col> colums,string data) {
+    for (int i = 0; i < colums.size(); i++) {
+        if (colums[i].nombre == trim(data)) return i;
+    }
+    return -1;
+}
+int getbycol(vector<vector<string>>datos, int i,string val) {
+    for (int j = 0; j < datos.size();j++) {
+        if (datos[j][i] == val)  return j;
+    }
+    return -1;
+}
 int main()
 {
     cargardata();
@@ -168,32 +192,38 @@ int main()
                     pos = value.find("where");
                     string updateds = trim(string(value.begin(), value.begin() + pos));
                     value.erase(0, pos);
+
+                    vector<vector<string>> data= getall(tablename);
+                    
+
+                    string condicion = trim(string(value.begin() + value.find("where") + 6, value.end() - 1));
+                    vector<string> cond = split(condicion, "=");
+                    int colnumcond = getIndexColum(tb.colums, trim(cond[0]));
+                    int indexdata = getbycol(data,colnumcond,trim(cond[1]));
+
                     vector<string> parametros = split(updateds, ",");
                     for (string p : parametros) {
                         vector<string> datos = split(p, "=");
-                        int columnumber;
-                        for (int i = 0; i < tb.colums.size();i++) {
-                            if (tb.colums[i].nombre == trim(datos[0])) columnumber=i;
+                        int columnumber=getIndexColum(tb.colums,trim(datos[0]));
+                        data[indexdata][columnumber] = trim(datos[1]);
+                    }
+                    vector<string>finald;
+                    for (vector<string> d : data) {
+                        string s;
+                        for (int i = 0; i < d.size() - 1; i++) {
+                            s += d[i] + ",";
                         }
-                        fstream file;
-                        file.open(tablename+".txt");
-                        string line; int i = 0;
-                        vector<string> data;
-                        while (std::getline(file, line)) {
-                            data.push_back(line);
-                        }
-                        file.close();
-                        string condicion = trim(string(value.begin() + value.find("where") + 6, value.end()));
-
-
-
-
+                        s += d[d.size() - 1]+"\n";
+                        finald.push_back(s);
                     }
 
-
-
-
-
+                    ofstream f(tablename+".txt", ios::out);
+                    
+                    if (f.is_open()) {
+                        for(string a:finald) f << a;
+                        f.close();
+                    }
+                    else cout << "Error de apertura de archivo." << endl;
 
                 }
             }
