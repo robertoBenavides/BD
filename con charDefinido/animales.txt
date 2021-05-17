@@ -1,5 +1,0 @@
-2,dose      ,busl
-3,jose      ,bull
-4,dimitri   ,vega       
-5,arco      ,gato
-6,jose      ,dog
