@@ -55,14 +55,23 @@ void rewriteInfo(vector<string>finald,string tablename) {
 }
 void createTable(string data) {
     string tablename = string(data.begin()+1, data.begin()+ data.find("("));
-    if (tableexist(tablename).numcols) {
+    if (tableexist(tablename).numcols==0) {
         string args = string(data.begin() + data.find("(") + 1, data.begin() + data.find(")"));
         vector<string> campos = split(trim(args), ",");
         const int c = campos.size();
         vector<Col> columnas;
+
         for (string a : campos) {
             vector<string> val = split(trim(a));
-            columnas.push_back(Col(val[0], val[1]));
+            string esChar=string(val[1].begin(),val[1].begin()+5);
+            if(esChar=="char["){
+              vector<string> tam = split(trim(val[1]),"[");
+              size_t postam=tam[1].find("]");
+              string tamanio = string(tam[1].begin(),tam[1].begin()+postam);
+              columnas.push_back(Col(val[0], tam[0],tamanio));
+            }else{
+              columnas.push_back(Col(val[0], val[1]));
+            }
         }
         Tabla t(tablename, columnas.size(), columnas);
         writeTable(t);
@@ -81,26 +90,33 @@ string readComand() {
     } while (line[line.size() - 1] != ';');
     return comando;
 }
-
 Tabla tableexist(string tbname) {
     for (Tabla t : tablas) if (t.nombre == tbname) return t;
     return Tabla();
 }
 void insertValue(string val) {
     size_t pos = (val.find(" ")>val.find("("))?val.find("("): val.find(" ");
-    
+
     string tablename = string(val.begin(), val.begin() + pos);
     val = string(val.begin()+val.find("(")+1,val.begin()+val.find(")"));
     Tabla tb = tableexist(tablename);
     if (tb.nombre!="") {
         vector<string> valores = split(val, ",");
-        
+
         if (valores.size() != tb.numcols) {
             cout << "numero incorrecto de columnas"<<endl;
         }
         else {
             string finalvalues;
-            for (string v : valores) finalvalues += trim(v) + ",";
+            for(int i=0;i<valores.size();i++){
+              finalvalues += trim(valores[i]);
+              if(tb.colums[i].tamanio!="0"){
+                int rellenar=stoi(tb.colums[i].tamanio)-valores[i].size();
+                string relleno(rellenar,' ');
+                finalvalues+=relleno;
+              }
+              finalvalues += ",";
+            }
             finalvalues = string(finalvalues.begin(), finalvalues.end() - 1);
             ofstream f(tablename + ".txt", ios::app);
             if (f.is_open()) {
@@ -129,7 +145,11 @@ void cargardata() {
             vector<Col> colums;
             for (string c : cd) {
                 vector<string> ds = split(c, "/");
-                colums.push_back(Col(ds[0], ds[1]));
+                if(ds.size()==3){
+                  colums.push_back(Col(ds[0], ds[1],ds[2]));
+                }else{
+                  colums.push_back(Col(ds[0], ds[1]));
+                }
             }
             tablas.push_back(Tabla(tbd[0],stoi(tbd[1]),colums));
         }
@@ -174,6 +194,8 @@ int getbycol(vector<vector<string>>datos, int i,string val) {
     }
     return -1;
 }
+
+
 int main()
 {
     cargardata();
@@ -215,7 +237,7 @@ int main()
                     value.erase(0, pos);
 
                     vector<vector<string>> data= getall(tablename);
-                    
+
 
                     string condicion = trim(string(value.begin() + value.find("where") + 6, value.end() - 1));
                     vector<string> cond = split(condicion, "=");
@@ -226,16 +248,22 @@ int main()
                     for (string p : parametros) {
                         vector<string> datos = split(p, "=");
                         int columnumber=getIndexColum(tb.colums,trim(datos[0]));
-                        data[indexdata][columnumber] = trim(datos[1]);
+                        if(tb.colums[columnumber].tamanio!="0"){
+                          int rellenar=stoi(tb.colums[columnumber].tamanio)-trim(datos[1]).size();
+                          string relleno(rellenar,' ');
+                          data[indexdata][columnumber] = trim(datos[1])+relleno;
+                        }else{
+                          data[indexdata][columnumber] = trim(datos[1]);
+                        }
                     }
                     vector<string>finald=toFlatString(data);
-                    
+
 
                     rewriteInfo(finald,tablename);
 
                 }
             }
-                
+
         }
         if (ident == "delete") {
             pos = value.find(" ");
@@ -256,9 +284,9 @@ int main()
                 rewriteInfo(finald, tablename);
 
             }
-            
-            
-            
+
+
+
         }
         if (ident == "select") {
             pos = value.find("from");
@@ -275,7 +303,7 @@ int main()
                         for (string c : camp) cout << c << "\t";
                         cout << endl;
                     }
-                        
+
                 }
                 else {
                     vector<string> camps = split(campos, ",");
@@ -286,19 +314,19 @@ int main()
 
                     for (int c : indices) cout << tb.colums[c].nombre << "\t";
                     cout << endl;
-                    
+
                     for (vector<string>camp : data) {
                         for (int c : indices) cout << camp[c] << "\t";
                         cout << endl;
                     }
                 }
-                
+
 
             }
         }
     }
-    
-    
+
+
     /*Profesor profesores[10] = { {"P1","RobertoAB"},{"P2","Sharon"},{"P3","Juan"} ,
                                     {"P4","Piero"} ,{"P5","Renzo"} ,{"P6","Lotus"},
                                     {"P7","Carlos"} ,{"P8","Carla"} ,{"P9","Kato"},{"O9","Sharon"} };

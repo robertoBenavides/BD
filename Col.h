@@ -5,14 +5,18 @@ struct Col
 {
     string nombre;
     string tipo;
+    string tamanio;
     Col() {}
-    Col(string n, string t) {
+    Col(string n, string t,string tam="0") {
         nombre = n;
         tipo = t;
+        tamanio=tam;
     }
     string toString() {
         string del = "/";
-        return nombre + del + tipo;
+        if(tamanio=="0"){
+          return nombre + del + tipo;
+        }
+        return nombre + del + tipo + del + tamanio;
     }
 };
-
