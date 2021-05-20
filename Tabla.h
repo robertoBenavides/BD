@@ -11,7 +11,7 @@ public:
 	vector<Col> colums;
 	Tabla() {};
 
-	Tabla(string n, int num, vector<Col> cs) {
+	Tabla(string n,int num,vector<Col> cs) {
 		numcols = num;
 		colums = cs;
 		nombre = n;
@@ -20,9 +20,10 @@ public:
 	string toString() {
 		string sep = "/";
 		string cadena = nombre + sep + to_string(numcols) + sep + "[";
-		for (Col i : colums) cadena += i.toString() + ",";
-		cadena = string(cadena.begin(), cadena.end() - 1);
-		cadena += "]";
+		for (Col i :colums) cadena += i.toString()+",";
+		cadena = string(cadena.begin(), cadena.end()-1);
+		cadena+="]";
 		return cadena;
 	}
 };
+
